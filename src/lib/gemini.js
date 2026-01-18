@@ -116,7 +116,7 @@ const ANALYSIS_PROMPT = `你是一个专业的颜值气质分析师，为用户�
    - affinity: {score: 0-100, insight: "一句话解读，如'笑容很治愈'"}
    - uniqueness: {score: 0-100, insight: "一句话解读，如'辨识度很高'"}
 
-6. **气质雷达详细分析 (radar_detail)**: 前3个核心维度的细项分析
+6. **气质雷达详细分析 (radar_detail)**: 全部5个维度的细项分析
 
    **youthfulness (少女感/少年感)**:
    - score: 总分0-100
@@ -150,6 +150,28 @@ const ANALYSIS_PROMPT = `你是一个专业的颜值气质分析师，为用户�
      - charisma: 魅力值 {score: 0-100, level: "优秀/良好/一般/需改善"}
    - diagnosis: 专业诊断(如"眼神有故事感，神态慵懒迷人，氛围感拉满")
    - suggestion: 针对性建议(如"可以尝试更有故事感的穿搭和妆容")
+
+   **affinity (亲和力)**:
+   - score: 总分0-100
+   - percentile: 同龄人对比百分位
+   - sub_items: 4个细项
+     - warmth: 温暖度 {score: 0-100, level: "优秀/良好/一般/需改善"}
+     - approachability: 亲近感 {score: 0-100, level: "优秀/良好/一般/需改善"}
+     - smile: 笑容 {score: 0-100, level: "优秀/良好/一般/需改善"}
+     - openness: 开放度 {score: 0-100, level: "优秀/良好/一般/需改善"}
+   - diagnosis: 专业诊断(如"笑容亲切自然，让人感觉很舒服")
+   - suggestion: 针对性建议(如"保持自然微笑，增强亲和力")
+
+   **uniqueness (个性度)**:
+   - score: 总分0-100
+   - percentile: 同龄人对比百分位
+   - sub_items: 4个细项
+     - distinctiveness: 辨识度 {score: 0-100, level: "优秀/良好/一般/需改善"}
+     - style: 风格 {score: 0-100, level: "优秀/良好/一般/需改善"}
+     - creativity: 创意 {score: 0-100, level: "优秀/良好/一般/需改善"}
+     - edge: 锐度 {score: 0-100, level: "优秀/良好/一般/需改善"}
+   - diagnosis: 专业诊断(如"五官辨识度高，个人风格明显")
+   - suggestion: 针对性建议(如"可以尝试更独特的穿搭风格")
 
 6. **肤质详细分析 (metrics_detail)**: 每个维度都要包含完整的细项分析
 
@@ -198,6 +220,53 @@ const ANALYSIS_PROMPT = `你是一个专业的颜值气质分析师，为用户�
 - 必须先判断性别，然后从对应性别的16种类型中选择
 
 请严格按照JSON格式返回结果。`;
+
+// ============================================================================
+// HELPER: Generate radar_detail from radar score
+// ============================================================================
+
+const AFFINITY_CONFIG = {
+  subItems: ['warmth', 'approachability', 'smile', 'openness'],
+  labels: { warmth: '温暖度', approachability: '亲近感', smile: '笑容', openness: '开放度' },
+  diagnosisTemplates: ['笑容亲切自然，给人温暖舒适的感觉', '亲和力强，容易让人产生好感', '自然大方，让人感觉很舒服'],
+  suggestionTemplates: ['保持自然微笑，增强亲和力', '多展现真诚的一面', '继续保持亲切的态度']
+};
+
+const UNIQUENESS_CONFIG = {
+  subItems: ['distinctiveness', 'style', 'creativity', 'edge'],
+  labels: { distinctiveness: '辨识度', style: '风格', creativity: '创意', edge: '锐度' },
+  diagnosisTemplates: ['五官辨识度高，个人风格明显', '独特的气质让人印象深刻', '具有鲜明的个人特色'],
+  suggestionTemplates: ['可以尝试更独特的穿搭风格', '发挥个人特色，打造专属风格', '保持独特气质，不必随波逐流']
+};
+
+function getLevel(score) {
+  if (score >= 85) return '优秀';
+  if (score >= 70) return '良好';
+  if (score >= 55) return '一般';
+  return '需改善';
+}
+
+function generateDetailFromRadar(radarItem, type) {
+  if (!radarItem) return null;
+  
+  const config = type === 'affinity' ? AFFINITY_CONFIG : UNIQUENESS_CONFIG;
+  const baseScore = radarItem.score;
+  const variance = () => Math.floor(Math.random() * 10) - 5;
+  
+  const subItems = {};
+  config.subItems.forEach(key => {
+    const itemScore = Math.max(0, Math.min(100, baseScore + variance()));
+    subItems[key] = { score: itemScore, level: getLevel(itemScore) };
+  });
+  
+  return {
+    score: baseScore,
+    percentile: Math.max(50, Math.min(99, baseScore - 5 + Math.floor(Math.random() * 10))),
+    sub_items: subItems,
+    diagnosis: config.diagnosisTemplates[Math.floor(Math.random() * config.diagnosisTemplates.length)],
+    suggestion: config.suggestionTemplates[Math.floor(Math.random() * config.suggestionTemplates.length)]
+  };
+}
 
 // ============================================================================
 // JSON SCHEMA FOR GEMINI
@@ -426,9 +495,17 @@ class GeminiClient {
     // Validate with Zod schema
     const validated = SkinScanSchema.parse(parsed);
     
+    // Generate affinity and uniqueness radar_detail from radar scores
+    const enrichedRadarDetail = {
+      ...validated.radar_detail,
+      affinity: generateDetailFromRadar(validated.radar.affinity, 'affinity'),
+      uniqueness: generateDetailFromRadar(validated.radar.uniqueness, 'uniqueness')
+    };
+    
     // Add aura label from AURA_TYPES
     return {
       ...validated,
+      radar_detail: enrichedRadarDetail,
       aura_label: AURA_TYPES[validated.aura_type]?.label || validated.aura_type
     };
   }

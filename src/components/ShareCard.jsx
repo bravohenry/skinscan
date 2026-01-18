@@ -1,8 +1,19 @@
+/**
+ * [INPUT]: result (分析结果), imageUrl (用户图片), FaceAnalysisOverlay
+ * [OUTPUT]: ShareCard 组件 (3:4 比例结果卡片)
+ * [POS]: components/ShareCard, 核心结果展示组件, 适配户外机器
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+ */
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { AURA_TYPES, FEMALE_AURA_TYPES, MALE_AURA_TYPES } from '@/lib/schema';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AURA_TYPES } from '@/lib/schema';
 import { cn } from '@/lib/utils';
+import { FaceAnalysisOverlay } from '@/components/FaceAnalysisOverlay';
+import { DetailedReportContent } from '@/components/DetailedReport';
+import { RotateCcw, Lock, ChevronRight } from 'lucide-react';
 
 const CATEGORY_THEMES = {
   cool: {
@@ -119,109 +130,145 @@ function getThemeForAura(auraType) {
   return CATEGORY_THEMES[category];
 }
 
-export function ShareCard({ result, imageUrl }) {
+export function ShareCard({ result, imageUrl, onReset }) {
+  const [showPaid, setShowPaid] = useState(false);
+  
   if (!result) return null;
 
-  const { aura_type, aura_label, predicted_age, beauty_score, tagline, gender, concerns } = result;
+  const { aura_type, aura_label, predicted_age, beauty_score, tagline } = result;
   const theme = getThemeForAura(aura_type);
-  const concernCount = concerns?.length || 0;
+
+  if (showPaid) {
+    return (
+      <Card className={cn(
+        "h-[calc(100dvh-3rem)] w-[calc((100dvh-3rem)*3/4)] mx-auto overflow-hidden shadow-2xl border-0 ring-1 ring-black/5 relative",
+        theme.bg
+      )}>
+        <Tabs defaultValue="radar" className="h-full flex flex-col">
+          <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-between px-4">
+            <Button
+              onClick={() => setShowPaid(false)}
+              variant="ghost"
+              size="icon"
+              className="w-10 h-10 rounded-full bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 shadow-sm"
+            >
+              <ChevronRight className="w-5 h-5 rotate-180" />
+            </Button>
+            
+            <TabsList className="grid grid-cols-2 bg-white/90 backdrop-blur p-1 rounded-full h-10 w-44 shadow-sm">
+              <TabsTrigger
+                value="radar"
+                className="rounded-full text-xs data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900"
+              >
+                气质雷达
+              </TabsTrigger>
+              <TabsTrigger
+                value="metrics"
+                className="rounded-full text-xs data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900"
+              >
+                肤质分析
+              </TabsTrigger>
+            </TabsList>
+            
+            {onReset ? (
+              <Button
+                onClick={onReset}
+                variant="ghost"
+                size="icon"
+                className="w-10 h-10 rounded-full bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 shadow-sm"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </Button>
+            ) : (
+              <div className="w-10 h-10" />
+            )}
+          </div>
+          
+          <CardContent className="p-0 h-full pt-16">
+            <DetailedReportContent result={result} />
+          </CardContent>
+        </Tabs>
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn(
-      "w-full max-w-[340px] mx-auto overflow-hidden shadow-xl border-0 ring-1 ring-black/5",
+      "h-[calc(100dvh-3rem)] w-[calc((100dvh-3rem)*3/4)] mx-auto overflow-hidden shadow-2xl border-0 ring-1 ring-black/5 relative",
       theme.bg
     )}>
-      <CardContent className="p-0">
-        <div className="relative">
-          
-          <div className="relative p-8 flex flex-col items-center gap-6">
-            <div className="relative group">
-              <div className={cn("absolute -inset-1 rounded-full opacity-50 blur-sm transition duration-1000 group-hover:duration-200", theme.accent)}></div>
-              <Avatar className="w-32 h-32 border-[3px] border-white shadow-sm relative z-10">
-                {imageUrl ? (
-                  <AvatarImage src={imageUrl} alt="照片" className="object-cover" />
-                ) : (
-                  <AvatarFallback className="text-3xl bg-white/50">📷</AvatarFallback>
-                )}
-              </Avatar>
-            </div>
+      {onReset && (
+        <Button
+          onClick={onReset}
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 shadow-sm"
+        >
+          <RotateCcw className="w-5 h-5" />
+        </Button>
+      )}
+      <CardContent className="p-0 h-full">
+        <div className="relative h-full flex flex-col">
+          <div className="flex-[40] min-h-0">
+            <FaceAnalysisOverlay imageUrl={imageUrl} compact />
+          </div>
 
-            <div className="flex flex-col items-center gap-2">
-              <Badge 
-                variant="secondary" 
-                className={cn(
-                  "px-4 py-1 text-sm font-medium tracking-wide rounded-full border-0 shadow-none uppercase",
-                  theme.badge
-                )}
-              >
-                {theme.icon} {aura_label || AURA_TYPES[aura_type]?.label}
-              </Badge>
-            </div>
+          <div className="flex-[60] flex flex-col items-center justify-evenly py-4 px-6">
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "px-5 py-1.5 text-base font-medium tracking-wide rounded-full border-0 shadow-none",
+                theme.badge
+              )}
+            >
+              {theme.icon} {aura_label || AURA_TYPES[aura_type]?.label}
+            </Badge>
 
-            <div className="grid grid-cols-2 gap-8 w-full px-4">
-              <div className="text-center space-y-1">
-                <div className={cn("text-3xl font-light tabular-nums tracking-tight", theme.text)}>
+            <div className="flex items-center justify-center gap-12 w-full">
+              <div className="text-center">
+                <div className={cn("text-5xl font-light tabular-nums tracking-tight", theme.text)}>
                   {predicted_age}
                 </div>
-                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">
+                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mt-1">
                   测龄
                 </div>
               </div>
               
-              <div className="relative text-center space-y-1">
-                 <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-px h-8 bg-gray-200/50"></div>
-                <div className={cn("text-3xl font-light tabular-nums tracking-tight", theme.text)}>
+              <div className="w-px h-14 bg-gray-200/50"></div>
+              
+              <div className="text-center">
+                <div className={cn("text-5xl font-light tabular-nums tracking-tight", theme.text)}>
                   {beauty_score}
                 </div>
-                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">
+                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mt-1">
                   颜值
                 </div>
               </div>
             </div>
 
-            <div className="relative py-4 px-2 w-full">
-              <div className="absolute inset-0 flex items-center">
-                 <div className="w-full border-t border-gray-200/30"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase tracking-widest">
-                <span className={cn("px-2 text-gray-300", theme.bg)}>测评结果</span>
-              </div>
-            </div>
-
             <p className={cn(
-              "text-center text-sm leading-relaxed text-pretty font-medium opacity-90 italic px-2",
+              "text-center text-sm leading-relaxed text-pretty font-medium opacity-90 italic px-4 max-w-[95%]",
               theme.text
             )}>
               "{tagline}"
             </p>
 
-            {concernCount > 0 && (
-              <div className="w-full mt-4 px-2">
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 rounded-xl px-4 py-4 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-lg">⚠️</span>
-                    <span className="text-amber-700 font-medium">
-                      检测到 {concernCount} 项需关注
-                    </span>
-                  </div>
-                  <div className="flex justify-center gap-2">
-                    {concerns.map((_, i) => (
-                      <div key={i} className="w-8 h-1.5 rounded-full bg-amber-300/50" />
-                    ))}
-                  </div>
-                  <p className="text-amber-600/70 text-xs">
-                    解锁完整报告查看详情与改善建议
-                  </p>
-                </div>
+            <Button
+              onClick={() => setShowPaid(true)}
+              className="w-full max-w-[280px] h-12 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg group relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
+              <div className="flex items-center gap-2 relative z-10">
+                <Lock className="w-4 h-4" />
+                <span>解锁完整报告</span>
+                <ChevronRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform" />
               </div>
-            )}
+            </Button>
 
-            <div className="w-full pt-6 mt-2">
-              <div className="flex items-center justify-center gap-2 opacity-40 hover:opacity-100 transition-opacity duration-300">
-                <div className="h-px w-8 bg-current"></div>
-                <span className="text-[10px] tracking-[0.2em] font-light uppercase">SkinScan AI</span>
-                <div className="h-px w-8 bg-current"></div>
-              </div>
+            <div className="flex items-center justify-center gap-2 opacity-40">
+              <div className="h-px w-8 bg-current"></div>
+              <span className="text-[10px] tracking-[0.2em] font-light uppercase">SkinScan AI</span>
+              <div className="h-px w-8 bg-current"></div>
             </div>
           </div>
         </div>

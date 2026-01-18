@@ -22,7 +22,7 @@ function getAngles(count) {
   return Array.from({ length: count }, (_, i) => startAngle + i * step);
 }
 
-export function RadarChart({ data, size = 220, color = '#fb7185' }) {
+export function RadarChart({ data, size = 220, color = '#fb7185', showDetails = true }) {
   const center = size / 2;
   const maxRadius = size * 0.38;
   const angles = getAngles(DIMENSIONS.length);
@@ -41,7 +41,7 @@ export function RadarChart({ data, size = 220, color = '#fb7185' }) {
   const gridLevels = [0.25, 0.5, 0.75, 1];
 
   return (
-    <div className="flex flex-col items-center gap-5">
+    <div className="flex flex-col items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
         {gridLevels.map((level, i) => {
           const gridPoints = angles.map((angle) => {
@@ -106,7 +106,7 @@ export function RadarChart({ data, size = 220, color = '#fb7185' }) {
               y={labelPos.y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="text-[9px] uppercase tracking-wider fill-stone-500 font-medium"
+              className="text-[10px] tracking-wide fill-stone-500 font-medium"
             >
               {label}
             </text>
@@ -114,26 +114,20 @@ export function RadarChart({ data, size = 220, color = '#fb7185' }) {
         })}
       </svg>
 
-      <div className="flex flex-col gap-3 w-full max-w-[300px]">
-        {DIMENSIONS.map(({ key, label }) => {
-          const item = data?.[key];
-          const score = typeof item === 'object' ? item?.score : item ?? 0;
-          const insight = typeof item === 'object' ? item?.insight : null;
-          return (
-            <div key={key} className="flex items-baseline gap-3">
-              <div className="w-12 text-right">
-                <span className="text-lg font-light tabular-nums text-stone-800">{score}</span>
+      {showDetails && (
+        <div className="grid grid-cols-5 gap-2 w-full">
+          {DIMENSIONS.map(({ key, label }) => {
+            const item = data?.[key];
+            const score = typeof item === 'object' ? item?.score : item ?? 0;
+            return (
+              <div key={key} className="text-center">
+                <div className="text-xl font-light tabular-nums text-stone-800">{score}</div>
+                <div className="text-[10px] text-stone-400 mt-0.5">{label}</div>
               </div>
-              <div className="flex-1">
-                <span className="text-xs text-stone-500 font-medium">{label}</span>
-                {insight && (
-                  <p className="text-xs text-stone-400 mt-0.5 leading-relaxed">{insight}</p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,13 @@
+/**
+ * [INPUT]: 依赖 ShareCard, gemini (analyzeFace)
+ * [OUTPUT]: 对外提供 App 组件 (主应用入口)
+ * [POS]: src/App.jsx, 应用根组件, 处理路由和状态
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+ */
 import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { CameraCapture } from '@/components/CameraCapture';
 import { ShareCard } from '@/components/ShareCard';
-import { DetailedReport } from '@/components/DetailedReport';
 import { AnalysisLoading } from '@/components/AnalysisLoading';
 import { FaceAnalysisOverlay } from '@/components/FaceAnalysisOverlay';
 import { analyzeFace } from '@/lib/gemini';
@@ -15,7 +19,6 @@ function App() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showPaid, setShowPaid] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleAnalyze = useCallback(async (file, url) => {
@@ -51,7 +54,6 @@ function App() {
     setImageUrl(null);
     setResult(null);
     setError(null);
-    setShowPaid(false);
   }, []);
 
   const renderEntryScreen = () => (
@@ -135,56 +137,13 @@ function App() {
     </div>
   );
 
-  const renderResult = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <FaceAnalysisOverlay imageUrl={imageUrl} />
-      
-      <ShareCard result={result} imageUrl={imageUrl} />
-
-      {!showPaid ? (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 rounded-2xl p-4 text-center">
-            <div className="text-2xl mb-2">🔓</div>
-            <h3 className="font-medium text-stone-800 mb-1">解锁完整报告</h3>
-            <p className="text-xs text-stone-500 mb-3">
-              查看 6 大维度详细分析 + 个性化建议
-            </p>
-            <Button
-              onClick={() => setShowPaid(true)}
-              className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 px-8 h-10 shadow-lg shadow-amber-500/20"
-            >
-              立即解锁 · ¥9.9
-            </Button>
-          </div>
-          
-          <div className="flex justify-center gap-6 text-center">
-            {[
-              { icon: '📊', label: '雷达详析' },
-              { icon: '💆', label: '肤质报告' },
-              { icon: '💡', label: '护肤建议' }
-            ].map((item, i) => (
-              <div key={i} className="text-stone-400">
-                <div className="text-lg opacity-50">{item.icon}</div>
-                <div className="text-[10px] mt-1">{item.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <DetailedReport result={result} />
-      )}
-
-      <div className="text-center pt-4 pb-8">
-        <Button
-          onClick={handleReset}
-          variant="ghost"
-          className="text-stone-400 hover:text-stone-600 hover:bg-transparent"
-        >
-          重新测评
-        </Button>
+  if (result) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-stone-100 p-6 animate-in fade-in duration-500">
+        <ShareCard result={result} imageUrl={imageUrl} onReset={handleReset} />
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-stone-50 to-stone-100 text-stone-900 selection:bg-rose-200/50">
@@ -220,8 +179,6 @@ function App() {
             <FaceAnalysisOverlay imageUrl={imageUrl} />
             <AnalysisLoading isLoading={isLoading} />
           </div>
-        ) : result ? (
-          renderResult()
         ) : mode === 'camera' ? (
           renderCameraMode()
         ) : (

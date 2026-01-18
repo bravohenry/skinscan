@@ -437,7 +437,25 @@ export const SkinScanSchema = z.object({
         aura: SubItemSchema.describe('气场'),
         charisma: SubItemSchema.describe('魅力值')
       })
-    }).describe('氛围感详细分析')
+    }).describe('氛围感详细分析'),
+    
+    affinity: MetricDetailSchema.extend({
+      sub_items: z.object({
+        warmth: SubItemSchema.describe('温暖度'),
+        approachability: SubItemSchema.describe('亲近感'),
+        smile: SubItemSchema.describe('笑容'),
+        openness: SubItemSchema.describe('开放度')
+      })
+    }).optional().describe('亲和力详细分析'),
+    
+    uniqueness: MetricDetailSchema.extend({
+      sub_items: z.object({
+        distinctiveness: SubItemSchema.describe('辨识度'),
+        style: SubItemSchema.describe('风格'),
+        creativity: SubItemSchema.describe('创意'),
+        edge: SubItemSchema.describe('锐度')
+      })
+    }).optional().describe('个性度详细分析')
   }),
 
   metrics_detail: z.object({

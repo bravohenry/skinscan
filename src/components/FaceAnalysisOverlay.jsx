@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: imageUrl, compact prop, face-api.js models
+ * [OUTPUT]: FaceAnalysisOverlay 组件 (面部区域检测可视化)
+ * [POS]: components/FaceAnalysisOverlay, 用于 ShareCard 内嵌
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+ */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as faceapi from 'face-api.js';
 
@@ -17,10 +23,9 @@ const ZONE_LABELS = {
   chin: 'C'
 };
 
-export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
+export function FaceAnalysisOverlay({ imageUrl, onComplete, compact = false }) {
   const canvasRef = useRef(null);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
 
   useEffect(() => {
@@ -40,10 +45,9 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
 
   const drawFaceZones = useCallback((canvas, landmarks) => {
     const ctx = canvas.getContext('2d');
-    const positions = landmarks.positions;
 
     ctx.lineWidth = 2;
-    ctx.font = 'bold 14px Inter, system-ui, sans-serif';
+    ctx.font = 'bold 12px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
 
     const drawZone = (points, color, label) => {
@@ -65,7 +69,7 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
       const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
       
       ctx.fillStyle = color;
-      ctx.fillText(label, centerX, centerY + 5);
+      ctx.fillText(label, centerX, centerY + 4);
     };
 
     const jawLine = landmarks.getJawOutline();
@@ -74,12 +78,12 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
     const nose = landmarks.getNose();
 
     const foreheadPoints = [
-      { x: jawLine[0].x, y: leftEyebrow[0].y - 60 },
-      { x: jawLine[16].x, y: rightEyebrow[4].y - 60 },
-      { x: rightEyebrow[4].x, y: rightEyebrow[4].y - 10 },
-      { x: rightEyebrow[0].x, y: rightEyebrow[0].y - 10 },
-      { x: leftEyebrow[4].x, y: leftEyebrow[4].y - 10 },
-      { x: leftEyebrow[0].x, y: leftEyebrow[0].y - 10 }
+      { x: jawLine[0].x, y: leftEyebrow[0].y - 50 },
+      { x: jawLine[16].x, y: rightEyebrow[4].y - 50 },
+      { x: rightEyebrow[4].x, y: rightEyebrow[4].y - 8 },
+      { x: rightEyebrow[0].x, y: rightEyebrow[0].y - 8 },
+      { x: leftEyebrow[4].x, y: leftEyebrow[4].y - 8 },
+      { x: leftEyebrow[0].x, y: leftEyebrow[0].y - 8 }
     ];
     drawZone(foreheadPoints, ZONE_COLORS.forehead, ZONE_LABELS.forehead);
 
@@ -88,10 +92,10 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
     const noseLeft = nose[4];
     const noseRight = nose[8];
     const nosePoints = [
-      { x: noseTop.x - 15, y: noseTop.y },
-      { x: noseTop.x + 15, y: noseTop.y },
+      { x: noseTop.x - 12, y: noseTop.y },
+      { x: noseTop.x + 12, y: noseTop.y },
       { x: noseRight.x, y: noseRight.y },
-      { x: noseBottom.x, y: noseBottom.y + 5 },
+      { x: noseBottom.x, y: noseBottom.y + 4 },
       { x: noseLeft.x, y: noseLeft.y }
     ];
     drawZone(nosePoints, ZONE_COLORS.nose, ZONE_LABELS.nose);
@@ -103,7 +107,7 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
       { x: jawLine[3].x, y: jawLine[3].y },
       { x: jawLine[4].x, y: jawLine[4].y },
       { x: noseLeft.x, y: noseLeft.y },
-      { x: leftEyebrow[0].x, y: leftEyebrow[0].y + 20 }
+      { x: leftEyebrow[0].x, y: leftEyebrow[0].y + 16 }
     ];
     drawZone(leftCheekPoints, ZONE_COLORS.leftCheek, ZONE_LABELS.leftCheek);
 
@@ -114,7 +118,7 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
       { x: jawLine[13].x, y: jawLine[13].y },
       { x: jawLine[12].x, y: jawLine[12].y },
       { x: noseRight.x, y: noseRight.y },
-      { x: rightEyebrow[4].x, y: rightEyebrow[4].y + 20 }
+      { x: rightEyebrow[4].x, y: rightEyebrow[4].y + 16 }
     ];
     drawZone(rightCheekPoints, ZONE_COLORS.rightCheek, ZONE_LABELS.rightCheek);
 
@@ -123,8 +127,6 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
   const analyzeImage = useCallback(async () => {
     if (!imageUrl || !isModelLoaded || !canvasRef.current) return;
 
-    setIsAnalyzing(true);
-
     const img = new Image();
     img.crossOrigin = 'anonymous';
     
@@ -132,9 +134,9 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const maxWidth = 340;
-      const scale = maxWidth / img.width;
-      canvas.width = maxWidth;
+      const targetWidth = 400;
+      const scale = targetWidth / img.width;
+      canvas.width = targetWidth;
       canvas.height = img.height * scale;
 
       const ctx = canvas.getContext('2d');
@@ -163,7 +165,6 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
         console.error('Face detection failed:', err);
       }
 
-      setIsAnalyzing(false);
       setAnalysisComplete(true);
       onComplete?.();
     };
@@ -176,6 +177,45 @@ export function FaceAnalysisOverlay({ imageUrl, onComplete }) {
       analyzeImage();
     }
   }, [isModelLoaded, imageUrl, analyzeImage]);
+
+  if (compact) {
+    return (
+      <div className="w-full h-full">
+        <div className="grid grid-cols-2 gap-1 h-full rounded-none overflow-hidden">
+          <div className="relative bg-stone-900 overflow-hidden">
+            <canvas
+              ref={canvasRef}
+              className="w-full h-full object-cover"
+            />
+            {!analysisComplete && (
+              <div className="absolute inset-0 flex items-center justify-center bg-stone-900/80">
+                <div className="text-center">
+                  <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-1" />
+                  <p className="text-emerald-400 text-[10px] font-medium">
+                    {!isModelLoaded ? '加载中...' : '识别中...'}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-[8px] text-emerald-400 font-mono">
+              AI SCAN
+            </div>
+          </div>
+
+          <div className="relative">
+            <img
+              src={imageUrl}
+              alt="Original"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute bottom-1 right-1 bg-black/60 px-1.5 py-0.5 rounded text-[8px] text-white font-mono">
+              ORIGINAL
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full max-w-[340px] mx-auto">
