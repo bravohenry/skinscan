@@ -1,19 +1,24 @@
 /**
- * [INPUT]: result (分析结果), imageUrl (用户图片), FaceAnalysisOverlay
- * [OUTPUT]: ShareCard 组件 (3:4 比例结果卡片)
+ * [INPUT]: result (分析结果), imageUrl (用户图片), onReset
+ * [OUTPUT]: ShareCard 组件 (3:4 比例结果卡片, 3卡片横向滑动)
  * [POS]: components/ShareCard, 核心结果展示组件, 适配户外机器
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
  */
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AURA_TYPES } from '@/lib/schema';
 import { cn } from '@/lib/utils';
-import { FaceAnalysisOverlay } from '@/components/FaceAnalysisOverlay';
+import { SummaryCard } from '@/components/SummaryCard';
+import { AuraCard } from '@/components/AuraCard';
+import { SkinCard } from '@/components/SkinCard';
 import { DetailedReportContent } from '@/components/DetailedReport';
-import { RotateCcw, Lock, ChevronRight } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+
+// ============================================================================
+// THEME CONFIG
+// ============================================================================
 
 const CATEGORY_THEMES = {
   cool: {
@@ -130,64 +135,112 @@ function getThemeForAura(auraType) {
   return CATEGORY_THEMES[category];
 }
 
+// ============================================================================
+// DOT INDICATOR COMPONENT
+// ============================================================================
+
+function DotIndicator({ count, activeIndex, onDotClick }) {
+  return (
+    <div className="flex items-center justify-center gap-2 py-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <button
+          key={i}
+          onClick={() => onDotClick(i)}
+          className={cn(
+            "w-2 h-2 rounded-full transition-all duration-300",
+            i === activeIndex 
+              ? "bg-stone-800 w-4" 
+              : "bg-stone-300 hover:bg-stone-400"
+          )}
+          aria-label={`Go to slide ${i + 1}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export function ShareCard({ result, imageUrl, onReset }) {
-  const [showPaid, setShowPaid] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaid, setIsPaid] = useState(false);
+  const scrollContainerRef = useRef(null);
   
   if (!result) return null;
 
-  const { aura_type, aura_label, predicted_age, beauty_score, tagline } = result;
+  const { aura_type } = result;
   const theme = getThemeForAura(aura_type);
 
-  if (showPaid) {
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const scrollLeft = container.scrollLeft;
+    const cardWidth = container.offsetWidth;
+    const newIndex = Math.round(scrollLeft / cardWidth);
+    
+    if (newIndex !== activeIndex && newIndex >= 0 && newIndex < 3) {
+      setActiveIndex(newIndex);
+    }
+  }, [activeIndex]);
+
+  const scrollToIndex = useCallback((index) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const cardWidth = container.offsetWidth;
+    container.scrollTo({
+      left: index * cardWidth,
+      behavior: 'smooth'
+    });
+    setActiveIndex(index);
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  const handleUnlock = () => {
+    setIsPaid(true);
+  };
+
+  if (isPaid) {
     return (
       <Card className={cn(
-        "h-[calc(100dvh-3rem)] w-[calc((100dvh-3rem)*3/4)] mx-auto overflow-hidden shadow-2xl border-0 ring-1 ring-black/5 relative",
-        theme.bg
+        "h-[calc(100dvh-3rem)] w-[calc((100dvh-3rem)*3/4)] mx-auto overflow-hidden shadow-2xl border-0 ring-1 ring-black/5 relative bg-white"
       )}>
-        <Tabs defaultValue="radar" className="h-full flex flex-col">
-          <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-between px-4">
-            <Button
-              onClick={() => setShowPaid(false)}
-              variant="ghost"
-              size="icon"
-              className="w-10 h-10 rounded-full bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 shadow-sm"
-            >
-              <ChevronRight className="w-5 h-5 rotate-180" />
-            </Button>
+        {onReset && (
+          <Button
+            onClick={onReset}
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-stone-100/80 hover:bg-stone-200 text-stone-500 hover:text-stone-700"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </Button>
+        )}
+        
+        <CardContent className="p-0 h-full flex flex-col">
+          <Tabs defaultValue="radar" className="w-full h-full flex flex-col">
+            <div className="flex-none px-4 pt-6 pb-2 bg-white z-10">
+              <h2 className="text-center font-semibold text-stone-800 mb-4">详细分析报告</h2>
+              <TabsList className="w-full grid grid-cols-2">
+                <TabsTrigger value="radar">气质雷达</TabsTrigger>
+                <TabsTrigger value="metrics">肤质数据</TabsTrigger>
+              </TabsList>
+            </div>
             
-            <TabsList className="grid grid-cols-2 bg-white/90 backdrop-blur p-1 rounded-full h-10 w-44 shadow-sm">
-              <TabsTrigger
-                value="radar"
-                className="rounded-full text-xs data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900"
-              >
-                气质雷达
-              </TabsTrigger>
-              <TabsTrigger
-                value="metrics"
-                className="rounded-full text-xs data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900"
-              >
-                肤质分析
-              </TabsTrigger>
-            </TabsList>
-            
-            {onReset ? (
-              <Button
-                onClick={onReset}
-                variant="ghost"
-                size="icon"
-                className="w-10 h-10 rounded-full bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 shadow-sm"
-              >
-                <RotateCcw className="w-5 h-5" />
-              </Button>
-            ) : (
-              <div className="w-10 h-10" />
-            )}
-          </div>
-          
-          <CardContent className="p-0 h-full pt-16">
-            <DetailedReportContent result={result} />
-          </CardContent>
-        </Tabs>
+            <div className="flex-1 overflow-hidden">
+              <DetailedReportContent result={result} />
+            </div>
+          </Tabs>
+        </CardContent>
       </Card>
     );
   }
@@ -207,71 +260,31 @@ export function ShareCard({ result, imageUrl, onReset }) {
           <RotateCcw className="w-5 h-5" />
         </Button>
       )}
-      <CardContent className="p-0 h-full">
-        <div className="relative h-full flex flex-col">
-          <div className="flex-[40] min-h-0">
-            <FaceAnalysisOverlay imageUrl={imageUrl} compact />
+      
+      <CardContent className="p-0 h-full flex flex-col">
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+          style={{ scrollSnapType: 'x mandatory' }}
+        >
+          <div className="flex-shrink-0 w-full h-full snap-center">
+            <SummaryCard result={result} imageUrl={imageUrl} theme={theme} />
           </div>
-
-          <div className="flex-[60] flex flex-col items-center justify-evenly py-4 px-6">
-            <Badge 
-              variant="secondary" 
-              className={cn(
-                "px-5 py-1.5 text-base font-medium tracking-wide rounded-full border-0 shadow-none",
-                theme.badge
-              )}
-            >
-              {theme.icon} {aura_label || AURA_TYPES[aura_type]?.label}
-            </Badge>
-
-            <div className="flex items-center justify-center gap-12 w-full">
-              <div className="text-center">
-                <div className={cn("text-5xl font-light tabular-nums tracking-tight", theme.text)}>
-                  {predicted_age}
-                </div>
-                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mt-1">
-                  测龄
-                </div>
-              </div>
-              
-              <div className="w-px h-14 bg-gray-200/50"></div>
-              
-              <div className="text-center">
-                <div className={cn("text-5xl font-light tabular-nums tracking-tight", theme.text)}>
-                  {beauty_score}
-                </div>
-                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mt-1">
-                  颜值
-                </div>
-              </div>
-            </div>
-
-            <p className={cn(
-              "text-center text-sm leading-relaxed text-pretty font-medium opacity-90 italic px-4 max-w-[95%]",
-              theme.text
-            )}>
-              "{tagline}"
-            </p>
-
-            <Button
-              onClick={() => setShowPaid(true)}
-              className="w-full max-w-[280px] h-12 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
-              <div className="flex items-center gap-2 relative z-10">
-                <Lock className="w-4 h-4" />
-                <span>解锁完整报告</span>
-                <ChevronRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Button>
-
-            <div className="flex items-center justify-center gap-2 opacity-40">
-              <div className="h-px w-8 bg-current"></div>
-              <span className="text-[10px] tracking-[0.2em] font-light uppercase">SkinScan AI</span>
-              <div className="h-px w-8 bg-current"></div>
-            </div>
+          
+          <div className={cn("flex-shrink-0 w-full h-full snap-center", theme.bg)}>
+            <AuraCard result={result} />
+          </div>
+          
+          <div className={cn("flex-shrink-0 w-full h-full snap-center", theme.bg)}>
+            <SkinCard result={result} onUnlock={handleUnlock} />
           </div>
         </div>
+        
+        <DotIndicator 
+          count={3} 
+          activeIndex={activeIndex} 
+          onDotClick={scrollToIndex}
+        />
       </CardContent>
     </Card>
   );
